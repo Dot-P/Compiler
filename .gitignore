@@ -1,0 +1,23 @@
+# ビルド生成物
+*.o
+*.out
+*.exe
+*.tab.c
+lex.yy.c
+code.output
+
+# エディタ関連
+*~
+*.swp
+.DS_Store
+*.bak
+Thumbs.db
+
+# テスト関連
+*.log
+*.tmp
+
+# サンプル
+sample
+.sample
+fact.c
