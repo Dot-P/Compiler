@@ -1,13 +1,13 @@
-fact(n){
-  if n<1 then return 1;
-  else return n * fact(n-1);
-  endif;
+fact(n, m){
+  return 1+n%m;
 }
 
 main{
   var n;
+  var m;
 
   read n;
-  write fact(n);
+  read m;
+  write fact(n, m);
   writeln;
 }

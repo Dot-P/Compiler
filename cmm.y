@@ -38,7 +38,7 @@ typedef struct Codeval {
 %token SEMI
 %token PLUS MINUS
 %token PLUS2 MINUS2
-%token MULT DIV
+%token MULT DIV MOD
 %token NUMBER
 %token IF THEN ELSE ENDIF
 %token WHILE DO
@@ -405,6 +405,24 @@ T	: T MULT F
             $$.code = mergecode(mergecode($1.code, $3.code),
 				makecode(O_OPR, 0, 5));
           }
+		| T MOD F
+		  {
+			cptr* ab = mergecode($1.code, $3.code);
+
+			cptr* ab_again = clonecode(ab);
+
+			cptr* abab = mergecode(ab, ab_again);
+
+			cptr* ops = mergecode(
+							makecode(O_OPR, 0, 5),
+							mergecode(
+							makecode(O_OPR, 0, 4),
+							makecode(O_OPR, 0, 3) 
+							)
+						);
+
+			$$.code = mergecode(ab, ops);
+		  }
         | F
           {
             $$.code = $1.code;

@@ -68,6 +68,54 @@ void printcode(FILE* f, cptr* c){
   }
 }
 
+// clonecode 関数: cptr 構造体全体をディープコピー
+cptr* clonecode(cptr* orig) {
+    if (orig == NULL) {
+        return NULL; 
+    }
+
+    cptr* new_cptr = (cptr*)malloc(sizeof(cptr));
+    if (new_cptr == NULL) {
+        perror("Failed to allocate memory for cptr");
+        exit(EXIT_FAILURE);
+    }
+
+    new_cptr->h = NULL;
+    new_cptr->t = NULL;
+
+    code* curr_orig = orig->h;
+    code* prev_new = NULL;
+
+    while (curr_orig != NULL) {
+        code* new_code = (code*)malloc(sizeof(code));
+        if (new_code == NULL) {
+            perror("Failed to allocate memory for code");
+            exit(EXIT_FAILURE);
+        }
+
+        new_code->f = curr_orig->f;
+        new_code->l = curr_orig->l;
+        new_code->a = curr_orig->a;
+        new_code->next = NULL;
+
+        if (new_cptr->h == NULL) {
+            new_cptr->h = new_code;
+        }
+
+        if (prev_new != NULL) {
+            prev_new->next = new_code;
+        }
+
+        new_cptr->t = new_code;
+
+        prev_new = new_code;
+        curr_orig = curr_orig->next;
+    }
+
+    return new_cptr;
+}
+
+
 int makelabel(){
   static int x = 0;
 
@@ -77,5 +125,5 @@ int makelabel(){
 
 int yyerror(const char *s) {
     fprintf(stderr, "error: %s\n", s);
-    return 0;
+    return 1;
 }

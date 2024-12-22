@@ -18,6 +18,7 @@
 "-"		{ ECHO;  return MINUS; }
 "*"		{ ECHO;  return MULT; }
 "/"		{ ECHO;  return DIV; }
+"%"		{ ECHO;  return MOD; } 
 "if"		{ ECHO;  return IF; }
 "then"		{ ECHO;  return THEN; }
 "else"		{ ECHO;  return ELSE; }

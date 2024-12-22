@@ -31,5 +31,6 @@ int makelabel();
 cptr* makecode(int f, int l, int a);
 cptr* mergecode(cptr* c1, cptr* c2);
 void  printcode(FILE* f, cptr* c);
+cptr* clonecode(cptr* orig);
 
 #endif
