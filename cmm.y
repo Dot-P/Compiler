@@ -31,7 +31,7 @@ typedef struct Codeval {
 %token MAIN
 %token ID
 %token LPAR RPAR
-%token COMMA
+%token COLON COMMA
 %token LBRA RBRA
 %token WRITE
 %token WRITELN
@@ -278,6 +278,7 @@ st	: WRITE E SEMI
 	  }
 	| ifstmt 
 	| whilestmt
+	| gotostmt
 	| { addlist("block", BLOCK, 0, 0, 0); }
 	  body
           {
@@ -344,6 +345,28 @@ whilestmt	: WHILE cond DO st
 	    tmp = mergecode(tmp, makecode(O_LAB, 0, label1));
 
 	    $$.code = tmp; 
+			
+	    $$.val = 0;
+	  }
+	;
+
+gotostmt	: GOTO ID SEMI
+	  {
+	    int label0;
+
+	    label0 = makelabel();
+	    $$.code = makecode(O_JMP, 0, label0);
+			
+	    $$.val = 0;
+	  }
+	;
+
+labelstmt	: LABEL ID COLON
+	  {
+	    int label0;
+
+	    label0 = makelabel();
+	    $$.code = makecode(O_LAB, 0, label0);
 			
 	    $$.val = 0;
 	  }

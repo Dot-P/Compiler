@@ -8,6 +8,9 @@ main{
 
   read n;
   read m;
+  goto A;
+  write 0;
+  A: 
   write fact(n, m);
   writeln;
 }

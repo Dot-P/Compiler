@@ -12,6 +12,7 @@
 "}"		{ ECHO;  return RBRA; }
 "write"		{ ECHO;  return WRITE; }
 "writeln"	{ ECHO;  return WRITELN; }
+":"		{ ECHO;  return COLON; }
 ";"		{ ECHO;  return SEMI; }
 "+"		{ ECHO;  return PLUS; }
 "++"		{ ECHO;  return PLUS2; }
