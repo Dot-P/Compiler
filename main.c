@@ -1,5 +1,5 @@
 fact(n, m){
-  return 1+n%m;
+  return n^m^2;
 }
 
 main{

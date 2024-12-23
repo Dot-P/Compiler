@@ -18,13 +18,16 @@
 "-"		{ ECHO;  return MINUS; }
 "*"		{ ECHO;  return MULT; }
 "/"		{ ECHO;  return DIV; }
-"%"		{ ECHO;  return MOD; } 
+"%"		{ ECHO;  return MOD; } // add MOD
+"^"     { ECHO;  return POW; } // add POW
 "if"		{ ECHO;  return IF; }
 "then"		{ ECHO;  return THEN; }
 "else"		{ ECHO;  return ELSE; }
 "endif"		{ ECHO;  return ENDIF; } 
 "while"		{ ECHO;  return WHILE; }
 "do"		{ ECHO;  return DO; }
+"goto"		{ ECHO;  return GOTO; } // add GOTO
+"label"		{ ECHO;  return LABEL; } // add LABEL
 "read"		{ ECHO;  return READ; }
 "return"	{ ECHO;  return RETURN; }
 ":="		{ ECHO;  return COLEQ; }
