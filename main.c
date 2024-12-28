@@ -4,12 +4,14 @@ fact(n, m){
 
 main{
   var n;
-  
-  read n;
-  goto a;
-  n := 3;
+
   label a:
-  write n;
+  read n;
+  if n > 10 then
+    write 0;
+  else
+    goto a;
+  endif;
 
   writeln;
 }
