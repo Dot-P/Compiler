@@ -1,17 +1,13 @@
 fact(n, m){
-  return n+m;
+  return n^m;
 }
 
 main{
   var n;
 
-  label a:
   read n;
-  if n > 10 then
-    write 0;
-  else
-    goto a;
-  endif;
+
+  write fact(n, 2);
 
   writeln;
 }
