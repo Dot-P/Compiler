@@ -27,6 +27,7 @@
 "endif"		{ ECHO;  return ENDIF; } 
 "while"		{ ECHO;  return WHILE; }
 "do"		{ ECHO;  return DO; }
+"for"		{ ECHO;  return FOR; }
 "goto"		{ ECHO;  return GOTO; } // add GOTO
 "label"		{ ECHO;  return LABEL; } // add LABEL
 "read"		{ ECHO;  return READ; }
@@ -38,6 +39,9 @@
 "<"		{ ECHO;  return LT; }
 "!="		{ ECHO;  return NE; }
 "=="		{ ECHO;  return EQ; }
+"&&"		{ ECHO;  return AND; } // add AND
+"||"		{ ECHO;  return OR; } // add OR
+"!"		{ ECHO;  return NOT; } // add NOT
 [0-9]+		{ ECHO;  
                   yylval.val = atoi(yytext);
 		  return NUMBER;

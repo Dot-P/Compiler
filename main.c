@@ -1,13 +1,12 @@
-fact(n, m){
-  return n^m;
-}
-
 main{
   var n;
+  var i;
 
   read n;
 
-  write fact(n, 2);
+  for i := 0; i < n; i := i + 1 {
+    write i;
+  }
 
   writeln;
 }

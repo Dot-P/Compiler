@@ -42,11 +42,11 @@ typedef struct Codeval {
 %token POW
 %token NUMBER
 %token IF THEN ELSE ENDIF
-%token WHILE DO
+%token WHILE DO FOR
 %token GOTO LABEL
 %token READ
 %token COLEQ
-%token GE GT LE LT NE EQ
+%token GE GT LE LT NE EQ AND OR NOT
 %token RETURN
 %%
 
@@ -278,6 +278,7 @@ st	: WRITE E SEMI
 	  }
 	| ifstmt 
 	| whilestmt
+	| forstmt
 	| gotostmt
 	| labelstmt
 	| { addlist("block", BLOCK, 0, 0, 0); }
@@ -351,6 +352,88 @@ whilestmt	: WHILE cond DO st
 	  }
 	;
 
+forstmt
+    : FOR initstmt SEMI cond SEMI updatestmt st
+      {
+        int label0, label1;
+        cptr *tmp;
+
+        label0 = makelabel();  // 条件判定用のラベル
+        label1 = makelabel();  // 終了時のラベル
+
+        // 初期化部分のコード生成
+        tmp = $2.code;  // initstmt のコード
+
+        // 条件判定ラベル
+        tmp = mergecode(tmp, makecode(O_LAB, 0, label0));
+
+        // 条件部分のコード生成
+        tmp = mergecode(tmp, $4.code);
+
+        // 条件が偽なら終了ラベルにジャンプ
+        tmp = mergecode(tmp, makecode(O_JPC, 0, label1));
+
+        // 本体部分のコード生成
+        tmp = mergecode(tmp, $7.code);
+
+        // 更新部分のコード生成
+        tmp = mergecode(tmp, $6.code);
+
+        // 条件判定に戻るジャンプ
+        tmp = mergecode(tmp, makecode(O_JMP, 0, label0));
+
+        // 終了ラベル
+        tmp = mergecode(tmp, makecode(O_LAB, 0, label1));
+
+        // 完成したコードを返す
+        $$.code = tmp;
+        $$.val = 0;
+      }
+    ;
+
+initstmt
+    : ID COLEQ E
+      {
+        list *tmp;
+
+	    tmp = search_all($1.name);
+
+	    if (tmp == NULL){
+	      sem_error2("assignment");
+	    }
+
+	    if (tmp->kind != VARIABLE){
+	      sem_error2("assignment2");
+	    }
+
+	    $$.code = mergecode($3.code,
+				makecode(O_STO, level - tmp->l, tmp->a));
+	    $$.val = 0;
+      }
+    ;
+
+updatestmt
+    : ID COLEQ E
+      {
+        list *tmp;
+
+	    tmp = search_all($1.name);
+
+	    if (tmp == NULL){
+	      sem_error2("assignment");
+	    }
+
+	    if (tmp->kind != VARIABLE){
+	      sem_error2("assignment2");
+	    }
+
+	    $$.code = mergecode($3.code,
+				makecode(O_STO, level - tmp->l, tmp->a));
+	    $$.val = 0;
+      }
+    ;
+
+
 gotostmt	: GOTO ID SEMI
 	  {
 	    // 既存の label を検索
@@ -415,6 +498,49 @@ cond	: E GT E
 	    $$.code = mergecode(mergecode($1.code, $3.code),
 				makecode(O_OPR, 0, 8));
 	  }
+    | cond AND cond
+      {
+        // AND: (A != 0) * (B != 0)
+        cptr* tmpA = mergecode(
+						mergecode($1.code, makecode(O_LIT, 0, 0)), 
+						makecode(O_OPR, 0, 9)
+					);  // A != 0
+        cptr* tmpB = mergecode(
+						mergecode($3.code, makecode(O_LIT, 0, 0)), 
+						makecode(O_OPR, 0, 9)
+					);  // B != 0
+		cptr* tmp = mergecode(tmpA, tmpB);
+        tmp = mergecode(tmp,
+                            makecode(O_OPR, 0, 4));  // *
+		$$.code = tmp;
+      }
+    | cond OR cond
+	  {
+        // OR: (A != 0) + (B != 0) > 0
+        cptr* tmpA = mergecode(
+						mergecode($1.code, makecode(O_LIT, 0, 0)), 
+						makecode(O_OPR, 0, 9)
+					);  // A != 0
+        cptr* tmpB = mergecode(
+						mergecode($3.code, makecode(O_LIT, 0, 0)), 
+						makecode(O_OPR, 0, 9)
+					);  // B != 0
+		cptr* tmp = mergecode(tmpA, tmpB);
+        tmp = mergecode(tmp, makecode(O_OPR, 0, 2));  // +
+		tmp =  mergecode(tmp, mergecode(
+								makecode(O_LIT, 0, 0), 
+								makecode(O_OPR, 0, 12)
+								)); // > 0
+		$$.code = tmp;
+      }
+    | NOT cond
+      {
+        // NOT: (A == 0)
+        $$.code =  mergecode(
+						mergecode($2.code, makecode(O_LIT, 0, 0)), 
+						makecode(O_OPR, 0, 8)
+					);
+      }
 	;
 
 E	: E PLUS  T
