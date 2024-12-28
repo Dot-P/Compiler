@@ -13,7 +13,6 @@ struct LIST {
   struct LIST *prev;
 } list;
 
-
 list* search_block(char*);
 list* search_all(char*);
 list* searchf(int);
@@ -32,6 +31,6 @@ void sem_error2(char* kind);
 void sem_error3(char* s, int n1, int n2);
 
 
-enum KIND { VARIABLE, BLOCK, FUNC, CONSTANT };
+enum KIND { VARIABLE, BLOCK, FUNC, CONSTANT, LABELCODE};
 
 #endif

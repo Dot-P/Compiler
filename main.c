@@ -1,16 +1,15 @@
 fact(n, m){
-  return n^m^2;
+  return n+m;
 }
 
 main{
   var n;
-  var m;
-
+  
   read n;
-  read m;
-  goto A;
-  write 0;
-  A: 
-  write fact(n, m);
+  goto a;
+  n := 3;
+  label a:
+  write n;
+
   writeln;
 }

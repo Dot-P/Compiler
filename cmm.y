@@ -279,6 +279,7 @@ st	: WRITE E SEMI
 	| ifstmt 
 	| whilestmt
 	| gotostmt
+	| labelstmt
 	| { addlist("block", BLOCK, 0, 0, 0); }
 	  body
           {
@@ -352,23 +353,35 @@ whilestmt	: WHILE cond DO st
 
 gotostmt	: GOTO ID SEMI
 	  {
-	    int label0;
+	    // 既存の label を検索
+		list* lbl = search_all($2.name);
 
-	    label0 = makelabel();
-	    $$.code = makecode(O_JMP, 0, label0);
-			
-	    $$.val = 0;
+		if (lbl == NULL) {
+			// 前方参照もとりあえず未定義エラーにする
+			fprintf(stderr, "label '%s' is not defined!\n", $2.name);
+			exit(EXIT_FAILURE);
+		}
+
+		// O_JMP lbl->a のようにジャンプ命令を生成
+		$$.code = makecode(O_JMP, 0, lbl->a);
+		$$.val  = 0;
 	  }
 	;
 
 labelstmt	: LABEL ID COLON
 	  {
-	    int label0;
+		// すでにラベル名が登録されていないかチェック
+		if (search_all($2.name) != NULL) {
+			fprintf(stderr, "label '%s' already defined!\n", $2.name);
+			exit(EXIT_FAILURE);
+		}
+		// 新しい番号を作って登録
+		int labelno = makelabel();
+		addlist($2.name, LABELCODE, labelno, 0, 0);
 
-	    label0 = makelabel();
-	    $$.code = makecode(O_LAB, 0, label0);
-			
-	    $$.val = 0;
+		// 中間コードに O_LAB labelno を出す
+		$$.code = makecode(O_LAB, 0, labelno);
+		$$.val  = 0;
 	  }
 	;
 
