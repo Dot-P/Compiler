@@ -1,12 +1,15 @@
 main{
   var n;
-  var i;
-
   read n;
 
-  for i := 0; i < n; i := i + 1 {
-    write i;
-  }
+  switch n {
+    case 5:
+        write 1;
+    case 3:
+        write 2;
+    default:
+        write 0;
+}
 
   writeln;
 }

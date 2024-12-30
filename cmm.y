@@ -17,6 +17,9 @@ FILE *ofile;
 int level = 0;
 int offset = 0; 
 
+int current_switch_end_label = -1;
+int current_switch_default_label = -1;
+
 typedef struct Codeval {
   cptr* code;
   int   val;
@@ -44,6 +47,7 @@ typedef struct Codeval {
 %token IF THEN ELSE ENDIF
 %token WHILE DO FOR
 %token GOTO LABEL
+%token SWITCH CASE DEFAULT BREAK
 %token READ
 %token COLEQ
 %token GE GT LE LT NE EQ AND OR NOT
@@ -281,13 +285,14 @@ st	: WRITE E SEMI
 	| forstmt
 	| gotostmt
 	| labelstmt
+	| switchstmt
 	| { addlist("block", BLOCK, 0, 0, 0); }
 	  body
           {
 	    $$.code = $2.code;
 	    $$.val = $2.val;
 	    delete_block();
-	  }  
+	  } 
 	| RETURN E SEMI
 	  {
 	    list* tmp2;
@@ -467,6 +472,80 @@ labelstmt	: LABEL ID COLON
 		$$.val  = 0;
 	  }
 	;
+
+switchstmt
+  : SWITCH E LBRA caselist defaultcase RBRA
+    {
+      cptr *tmp;
+
+      // ID の計算コード
+      tmp = $2.code;
+
+      // caselist のコード ($4) を結合
+      tmp = mergecode(tmp, $4.code);
+
+      // default 部分
+      tmp = mergecode(tmp, makecode(O_LAB, 0, current_switch_default_label));
+      tmp = mergecode(tmp, $5.code);
+
+      // 終了ラベル
+      tmp = mergecode(tmp, makecode(O_LAB, 0, current_switch_end_label));
+
+      $$.code = tmp;
+
+	  current_switch_end_label = -1;
+      current_switch_default_label = -1;
+    }
+  ;
+
+caselist
+    : caselist case
+      {
+        $$.code = mergecode($1.code, $2.code);
+      }
+    | case
+    ;
+
+case
+  : CASE NUMBER COLON st
+    { 
+
+	  if (current_switch_default_label == -1 && current_switch_end_label == -1) {
+		current_switch_default_label = makelabel();
+		current_switch_end_label     = makelabel();
+	  }
+
+      int case_label = makelabel();
+
+      // NUMBER == ID か比較する
+      $$.code = makecode(O_LIT, 0, yylval.val);             // push NUMBER
+	  // push ID
+      $$.code = mergecode($$.code, makecode(O_OPR, 0, 8));  // == 比較
+
+      // 偽なら case_label へ飛ぶ
+      $$.code = mergecode($$.code, makecode(O_JPC, 0, case_label));
+
+      // 真なら st を実行
+      $$.code = mergecode($$.code, $4.code);
+
+      // case の末尾で switch の終わりへ飛ぶ
+      $$.code = mergecode($$.code,
+                makecode(O_JMP, 0, current_switch_end_label));
+
+      // 次の case(あるいは default) へ: case_label 定義
+      $$.code = mergecode($$.code, makecode(O_LAB, 0, case_label));
+    }
+  ;
+
+
+defaultcase
+    : DEFAULT COLON st
+      {
+        $$.code = $3.code;
+      }
+    ;
+
+
 
 cond	: E GT E
 	  {

@@ -30,6 +30,10 @@
 "for"		{ ECHO;  return FOR; }
 "goto"		{ ECHO;  return GOTO; } // add GOTO
 "label"		{ ECHO;  return LABEL; } // add LABEL
+"switch"    { ECHO;  return SWITCH; } // add SWITCH
+"case"		{ ECHO;  return CASE; } // add CASE
+"default"	{ ECHO;  return DEFAULT; } // add DEFAULT
+"break"		{ ECHO;  return BREAK; } // add BREAK
 "read"		{ ECHO;  return READ; }
 "return"	{ ECHO;  return RETURN; }
 ":="		{ ECHO;  return COLEQ; }
