@@ -1,6 +1,11 @@
 main{
+  var n, m;
+  read n;
 
-  write 3^2;
+  m := --n;
+
+  write n;
+  write m;
 
   writeln;
 }

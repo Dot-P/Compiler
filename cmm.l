@@ -17,6 +17,7 @@
 "+"		{ ECHO;  return PLUS; }
 "++"		{ ECHO;  return PLUS2; }
 "-"		{ ECHO;  return MINUS; }
+"--"		{ ECHO;  return MINUS2; }
 "*"		{ ECHO;  return MULT; }
 "/"		{ ECHO;  return DIV; }
 "%"		{ ECHO;  return MOD; } // add MOD

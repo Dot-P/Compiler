@@ -775,23 +775,154 @@ F	: ID
 	      sem_error2("id as variable");
 	    }
 	  }
+	| PLUS2 ID
+	{
+		cptr *tmpc;
+		list* tmpl;
+
+		tmpl = search_all($2.name);
+		if (tmpl == NULL){
+		sem_error2("id");
+		}
+
+		if (tmpl->kind == VARIABLE){
+		// 1. 変数の値をロード
+		cptr* load = makecode(O_LOD, level - tmpl->l, tmpl->a);
+
+		// 2. 1をリテラルとしてプッシュ
+		cptr* one = makecode(O_LIT, 0, 1);
+
+		// 3. 加算操作
+		cptr* add = makecode(O_OPR, 0, 2);
+
+		// 4. 結果を再びストア
+		cptr* store = makecode(O_STO, level - tmpl->l, tmpl->a);
+
+		// コードを順に結合
+		tmpc = mergecode(load, one);
+		tmpc = mergecode(tmpc, add);
+		tmpc = mergecode(tmpc, store);
+
+		// 生成されたコードを$$.codeに割り当て
+		$$.code = tmpc;
+		}
+		else {
+		sem_error2("id as variable");
+		}
+	}
+	| MINUS2 ID
+	{
+		cptr *tmpc;
+		list* tmpl;
+
+		tmpl = search_all($2.name);
+		if (tmpl == NULL){
+		sem_error2("id");
+		}
+
+		if (tmpl->kind == VARIABLE){
+		// 1. 変数の値をロード
+		cptr* load = makecode(O_LOD, level - tmpl->l, tmpl->a);
+
+		// 2. 1をリテラルとしてプッシュ
+		cptr* one = makecode(O_LIT, 0, 1);
+
+		// 3. 加算操作
+		cptr* add = makecode(O_OPR, 0, 3); 
+
+		// 4. 結果を再びストア
+		cptr* store = makecode(O_STO, level - tmpl->l, tmpl->a);
+
+		// コードを順に結合
+		tmpc = mergecode(load, one);
+		tmpc = mergecode(tmpc, add);
+		tmpc = mergecode(tmpc, store);
+
+		// 生成されたコードを$$.codeに割り当て
+		$$.code = tmpc;
+		}
+		else {
+		sem_error2("id as variable");
+		}
+	}
 	| ID PLUS2
-	  {
-	    cptr *tmpc;
-	    list* tmpl;
+	{
+		cptr *tmpc;
+		list *tmpl;
 
-	    tmpl = search_all($1.name);
-	    if (tmpl == NULL){
-	      sem_error2("id");
-	    }
+		// 変数を検索
+		tmpl = search_all($1.name);
+		if (tmpl == NULL) {
+			sem_error2("id");
+		}
 
-	    if (tmpl->kind == VARIABLE){
-	      $$.code = makecode(O_LOD, level - tmpl->l, tmpl->a)+1;
-	    }
-	    else {
-	      sem_error2("id as variable");
-	    }
-	  }
+		if (tmpl->kind == VARIABLE) {
+			// 1. 現在の値をロード
+			cptr* load = makecode(O_LOD, level - tmpl->l, tmpl->a);
+
+			// 2. 現在の値をスタックに保存（後置インクリメントのため）
+			cptr* pushCurrent = clonecode(load);
+
+			// 3. 1をリテラルとしてプッシュ
+			cptr* one = makecode(O_LIT, 0, 1);
+
+			// 4. 加算操作
+			cptr* add = makecode(O_OPR, 0, 2);
+
+			// 5. 結果を再びストア
+			cptr* store = makecode(O_STO, level - tmpl->l, tmpl->a);
+
+			// コードを順に結合
+			tmpc = mergecode(load, pushCurrent); // 現在の値を保持
+			tmpc = mergecode(tmpc, one);         // 1をプッシュ
+			tmpc = mergecode(tmpc, add);         // 加算操作
+			tmpc = mergecode(tmpc, store);       // 結果をストア
+
+			// 生成されたコードを$$.codeに割り当て
+			$$.code = tmpc;
+		} else {
+			sem_error2("id as variable");
+		}
+	}
+	| ID MINUS2
+	{
+		cptr *tmpc;
+		list *tmpl;
+
+		// 変数を検索
+		tmpl = search_all($1.name);
+		if (tmpl == NULL) {
+			sem_error2("id");
+		}
+
+		if (tmpl->kind == VARIABLE) {
+			// 1. 現在の値をロード
+			cptr* load = makecode(O_LOD, level - tmpl->l, tmpl->a);
+
+			// 2. 現在の値をスタックに保存（後置インクリメントのため）
+			cptr* pushCurrent = clonecode(load);
+
+			// 3. 1をリテラルとしてプッシュ
+			cptr* one = makecode(O_LIT, 0, 1);
+
+			// 4. 減算操作
+			cptr* add = makecode(O_OPR, 0, 3);
+
+			// 5. 結果を再びストア
+			cptr* store = makecode(O_STO, level - tmpl->l, tmpl->a);
+
+			// コードを順に結合
+			tmpc = mergecode(load, pushCurrent); // 現在の値を保持
+			tmpc = mergecode(tmpc, one);         // 1をプッシュ
+			tmpc = mergecode(tmpc, add);         // 減算操作
+			tmpc = mergecode(tmpc, store);       // 結果をストア
+
+			// 生成されたコードを$$.codeに割り当て
+			$$.code = tmpc;
+		} else {
+			sem_error2("id as variable");
+		}
+	}
 	| ID LPAR fparams RPAR
 	  {
 	    list* tmpl;
