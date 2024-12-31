@@ -674,122 +674,89 @@ T	: T MULT L
 
 L	: F POW L
         {
-			/*
-			先に $1.code (a=base) → $3.code (b=exponent) が実行されるため、
-			スタックトップには exponent が、その下に base がある状態になる。
-
-			ここでローカル領域を offset>=3 から割り当てる:
-			b_off : exponent を保存する場所
-			a_off : base     を保存する場所
-			r_off : result   を保存する場所
-
-			1) offset の現在値を保存
-			2) 必要なぶん(3)だけ offset を増やす
-			3) a_off, b_off, r_off をその範囲に割り当てる
-			*/
-			int start = offset;     // 現在のoffset (例: 3 など)
-			offset += 3;            // 3個ぶん一時領域を使う
+			int start = SYSTEM_AREA + offset;  // 現在の offset を記録
+			offset += 3;         // 必要な領域を確保
 			int b_off = start + 0;
 			int a_off = start + 1;
 			int r_off = start + 2;
 
-			// 4) 生成する中間コード(ベースは従来どおり)
-			//    $1.code => base(a)をpush, $3.code => exponent(b)をpush
-			cptr* powCode = mergecode($1.code, $3.code);
+			cptr* powCode = mergecode(
+				mergecode($3.code, makecode(O_STO, 0, b_off)),
+				mergecode($1.code, makecode(O_STO, 0, a_off)) 
+				);
 
-			// exponentを b_off に書き込む (先に push されたのは b が上)
-			cptr* stoExp  = makecode(O_STO, 0, b_off);
+			powCode = mergecode(makecode(O_INT, 0, 3), powCode);
 
-			// baseを a_off に書き込む 
-			cptr* stoBase = makecode(O_STO, 0, a_off);
-
-			// result = 1 => r_off
+			// result を初期化
 			cptr* init_result = mergecode(
-				makecode(O_LIT, 0, 1),       // push 1
-				makecode(O_STO, 0, r_off)// r_off = 1
+				makecode(O_LIT, 0, 1),
+				makecode(O_STO, 0, r_off)
 			);
 
-			// ループ用ラベルを2個作成
+			// ループ用ラベル作成
 			int label_top = makelabel();
 			int label_end = makelabel();
 
-			// label_top
 			cptr* lab_top = makecode(O_LAB, 0, label_top);
 
-			/*
-			5) if (b <= 0) goto end;
-				=> LOD b_off; LIT 0; OPR(GT); JPC end
-				(b>0 ならループ継続)
-			*/
+			// b > 0 の条件判定
 			cptr* check_b = mergecode(
 				mergecode(
-					makecode(O_LOD, 0, b_off), // push b
-					makecode(O_LIT, 0, 0)          // push 0
+					makecode(O_LOD, 0, b_off),
+					makecode(O_LIT, 0, 0)
 				),
-				makecode(O_OPR, 0, 12)           // OPR(GT) => (b>0)?1:0
+				makecode(O_OPR, 0, 12)
 			);
 			cptr* jump_end = makecode(O_JPC, 0, label_end);
 			cptr* if_b_part = mergecode(check_b, jump_end);
 
-			/*
-			6) result *= a;
-				=> LOD r_off; LOD a_off; OPR(×); STO r_off
-			*/
+			// result *= a
 			cptr* mul_part = mergecode(
 				mergecode(
 					mergecode(
-						makecode(O_LOD, 0, r_off), // push result
-						makecode(O_LOD, 0, a_off)  // push a
+						makecode(O_LOD, 0, r_off),
+						makecode(O_LOD, 0, a_off)
 					),
-					makecode(O_OPR, 0, 4)           // 4 = MUL
+					makecode(O_OPR, 0, 4)
 				),
-				makecode(O_STO, 0, r_off)     // result = result * a
+				makecode(O_STO, 0, r_off)
 			);
 
-			/*
-			7) b = b - 1;
-				=> LOD b_off; LIT 1; OPR(SUB); STO b_off
-			*/
+			// b--
 			cptr* dec_b = mergecode(
 				mergecode(
 					mergecode(
-						makecode(O_LOD, 0, b_off), // push b
-						makecode(O_LIT, 0, 1)          // push 1
+						makecode(O_LOD, 0, b_off),
+						makecode(O_LIT, 0, 1)
 					),
-					makecode(O_OPR, 0, 3)           // 3 = SUB
+					makecode(O_OPR, 0, 3)
 				),
-				makecode(O_STO, 0, b_off)     // b_off = b_off - 1
+				makecode(O_STO, 0, b_off)
 			);
 
-			// 8) JMP top
+			// ループ終了と結果のロード
 			cptr* jump_top = makecode(O_JMP, 0, label_top);
-
-			// label_end
 			cptr* lab_end = makecode(O_LAB, 0, label_end);
-
-			// 9) LOD r_off => スタックに最終結果を積む
 			cptr* load_r = makecode(O_LOD, 0, r_off);
 
-			// ---- 全部つなげる ----
-			cptr* tmp = mergecode(powCode, stoExp);
-			tmp = mergecode(tmp, stoBase);
-			tmp = mergecode(tmp, init_result);
-			tmp = mergecode(tmp, lab_top);     // label top
-			tmp = mergecode(tmp, if_b_part);   // if (b<=0) => goto end
-			tmp = mergecode(tmp, mul_part);    // result *= a
-			tmp = mergecode(tmp, dec_b);       // b--
-			tmp = mergecode(tmp, jump_top);    // jmp top
-			tmp = mergecode(tmp, lab_end);     // label end
-			tmp = mergecode(tmp, load_r);      // push result
+			// 中間コードを結合
+			cptr* tmp = mergecode(powCode,init_result);
+			tmp = mergecode(tmp, lab_top);
+			tmp = mergecode(tmp, if_b_part);
+			tmp = mergecode(tmp, mul_part);
+			tmp = mergecode(tmp, dec_b);
+			tmp = mergecode(tmp, jump_top);
+			tmp = mergecode(tmp, lab_end);
+			tmp = mergecode(tmp, load_r);
 
 			$$.code = tmp;
-			$$.val  = 3; // この規則で確保した一時領域のサイズ
+			$$.val  = 3;  // 必要な領域のサイズ
 		}
         | F
           {
             $$.code = $1.code;
           }
-	;	
+	;
 
 F	: ID
 	  {
