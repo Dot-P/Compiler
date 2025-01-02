@@ -1,11 +1,17 @@
 main{
-  var n, m;
+  var n;
+  
   read n;
 
-  m := --n;
+  if n < 10 then
+    goto flag;
+  endif;
 
-  write n;
-  write m;
+  write 0;
+
+  label flag :
+
+  write 1;
 
   writeln;
 }

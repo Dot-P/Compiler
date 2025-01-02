@@ -5,6 +5,8 @@
 
 list *h, *t;
 
+pending_label *pending_head; 
+
 void addlist(char* name, int kind, int offset, int level, int fparam){
   list *tmp;
 
@@ -124,6 +126,47 @@ void vd_backpatch(int n_of_vars, int offset){
     tmp = tmp->prev;
   }
 }
+
+void add_pending_label(char *name, code *instr) {
+    pending_label *new_label = (pending_label *)malloc(sizeof(pending_label));
+    if (new_label == NULL) {
+        perror("memory allocation");
+        exit(EXIT_FAILURE);
+    }
+    new_label->name = name;
+    new_label->instr = instr;
+    new_label->next = pending_head;
+    pending_head = new_label;
+}
+
+void resolve_pending_labels(char *name, int labelno) {
+    pending_label *curr = pending_head, *prev = NULL;
+
+    while (curr != NULL) {
+        if (strcmp(curr->name, name) == 0) {
+            curr->instr->a = labelno;
+            if (prev == NULL) {
+                pending_head = curr->next;
+            } else {
+                prev->next = curr->next;
+            }
+            free(curr);
+            return;
+        }
+        prev = curr;
+        curr = curr->next;
+    }
+}
+
+void check_unresolved_labels() {
+    pending_label *curr = pending_head;
+
+    while (curr != NULL) {
+        fprintf(stderr, "Error: label '%s' is not resolved!\n", curr->name);
+        exit(EXIT_FAILURE);
+    }
+}
+
 
 void sem_error1(char* kind){
   fprintf(stderr,

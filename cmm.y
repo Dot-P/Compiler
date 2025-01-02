@@ -439,39 +439,47 @@ updatestmt
     ;
 
 
-gotostmt	: GOTO ID SEMI
-	  {
-	    // 既存の label を検索
+gotostmt : GOTO ID SEMI
+	{
 		list* lbl = search_all($2.name);
 
 		if (lbl == NULL) {
-			// 前方参照もとりあえず未定義エラーにする
-			fprintf(stderr, "label '%s' is not defined!\n", $2.name);
-			exit(EXIT_FAILURE);
-		}
+			fprintf(stderr, "Warning: label '%s' is not defined yet.\n", $2.name);
 
-		// O_JMP lbl->a のようにジャンプ命令を生成
-		$$.code = makecode(O_JMP, 0, lbl->a);
-		$$.val  = 0;
-	  }
+			// Create a new jump instruction
+			int labelno = makelabel();
+			cptr* jmp_instr = makecode(O_JMP, 0, labelno);
+
+			// Add the jump instruction's head (the actual code pointer) to pending labels
+			add_pending_label($2.name, jmp_instr->h);
+
+			$$.code = jmp_instr;
+			$$.val = 0;
+		} else {
+			$$.code = makecode(O_JMP, 0, lbl->a);
+			$$.val = 0;
+		}
+	}
 	;
 
-labelstmt	: LABEL ID COLON
-	  {
-		// すでにラベル名が登録されていないかチェック
+
+labelstmt : LABEL ID COLON
+	{
 		if (search_all($2.name) != NULL) {
-			fprintf(stderr, "label '%s' already defined!\n", $2.name);
+			fprintf(stderr, "Error: label '%s' already defined!\n", $2.name);
 			exit(EXIT_FAILURE);
 		}
-		// 新しい番号を作って登録
+
 		int labelno = makelabel();
 		addlist($2.name, LABELCODE, labelno, 0, 0);
 
-		// 中間コードに O_LAB labelno を出す
+		resolve_pending_labels($2.name, labelno);
+
 		$$.code = makecode(O_LAB, 0, labelno);
-		$$.val  = 0;
-	  }
+		$$.val = 0;
+	}
 	;
+
 
 switchstmt
   : SWITCH E LBRA caselist defaultcase RBRA
@@ -780,34 +788,38 @@ F	: ID
 		cptr *tmpc;
 		list* tmpl;
 
+		// 変数を検索
 		tmpl = search_all($2.name);
-		if (tmpl == NULL){
-		sem_error2("id");
+		if (tmpl == NULL) {
+			sem_error2("id");
 		}
 
-		if (tmpl->kind == VARIABLE){
-		// 1. 変数の値をロード
-		cptr* load = makecode(O_LOD, level - tmpl->l, tmpl->a);
+		if (tmpl->kind == VARIABLE) {
+			// 1. 現在の値をロード
+			cptr* load = makecode(O_LOD, level - tmpl->l, tmpl->a);
 
-		// 2. 1をリテラルとしてプッシュ
-		cptr* one = makecode(O_LIT, 0, 1);
+			// 2. 1をリテラルとしてプッシュ
+			cptr* one = makecode(O_LIT, 0, 1);
 
-		// 3. 加算操作
-		cptr* add = makecode(O_OPR, 0, 2);
+			// 3. 加算操作
+			cptr* add = makecode(O_OPR, 0, 2);
 
-		// 4. 結果を再びストア
-		cptr* store = makecode(O_STO, level - tmpl->l, tmpl->a);
+			// 4. 結果を再びストア
+			cptr* store = makecode(O_STO, level - tmpl->l, tmpl->a);
 
-		// コードを順に結合
-		tmpc = mergecode(load, one);
-		tmpc = mergecode(tmpc, add);
-		tmpc = mergecode(tmpc, store);
+			// 5. 加算後の値をスタックに残す
+			cptr* pushResult = makecode(O_LOD, level - tmpl->l, tmpl->a);
 
-		// 生成されたコードを$$.codeに割り当て
-		$$.code = tmpc;
-		}
-		else {
-		sem_error2("id as variable");
+			// コードを順に結合
+			tmpc = mergecode(load, one);         // 現在の値とリテラル 1 を結合
+			tmpc = mergecode(tmpc, add);        // 加算操作
+			tmpc = mergecode(tmpc, store);      // 結果を変数に保存
+			tmpc = mergecode(tmpc, pushResult); // 加算後の値を再びスタックに積む
+
+			// 生成されたコードを$$.codeに割り当て
+			$$.code = tmpc;
+		} else {
+			sem_error2("id as variable");
 		}
 	}
 	| MINUS2 ID
@@ -815,34 +827,38 @@ F	: ID
 		cptr *tmpc;
 		list* tmpl;
 
+		// 変数を検索
 		tmpl = search_all($2.name);
-		if (tmpl == NULL){
-		sem_error2("id");
+		if (tmpl == NULL) {
+			sem_error2("id");
 		}
 
-		if (tmpl->kind == VARIABLE){
-		// 1. 変数の値をロード
-		cptr* load = makecode(O_LOD, level - tmpl->l, tmpl->a);
+		if (tmpl->kind == VARIABLE) {
+			// 1. 現在の値をロード
+			cptr* load = makecode(O_LOD, level - tmpl->l, tmpl->a);
 
-		// 2. 1をリテラルとしてプッシュ
-		cptr* one = makecode(O_LIT, 0, 1);
+			// 2. 1をリテラルとしてプッシュ
+			cptr* one = makecode(O_LIT, 0, 1);
 
-		// 3. 加算操作
-		cptr* add = makecode(O_OPR, 0, 3); 
+			// 3. 減算操作
+			cptr* add = makecode(O_OPR, 0, 3);
 
-		// 4. 結果を再びストア
-		cptr* store = makecode(O_STO, level - tmpl->l, tmpl->a);
+			// 4. 結果を再びストア
+			cptr* store = makecode(O_STO, level - tmpl->l, tmpl->a);
 
-		// コードを順に結合
-		tmpc = mergecode(load, one);
-		tmpc = mergecode(tmpc, add);
-		tmpc = mergecode(tmpc, store);
+			// 5. 加算後の値をスタックに残す
+			cptr* pushResult = makecode(O_LOD, level - tmpl->l, tmpl->a);
 
-		// 生成されたコードを$$.codeに割り当て
-		$$.code = tmpc;
-		}
-		else {
-		sem_error2("id as variable");
+			// コードを順に結合
+			tmpc = mergecode(load, one);         // 現在の値とリテラル 1 を結合
+			tmpc = mergecode(tmpc, add);        // 減算操作
+			tmpc = mergecode(tmpc, store);      // 結果を変数に保存
+			tmpc = mergecode(tmpc, pushResult); // 加算後の値を再びスタックに積む
+
+			// 生成されたコードを$$.codeに割り当て
+			$$.code = tmpc;
+		} else {
+			sem_error2("id as variable");
 		}
 	}
 	| ID PLUS2
@@ -998,6 +1014,7 @@ main(){
 
   initialize();
   yyparse();
+  check_unresolved_labels();
 
   if (fclose(ofile) != 0){
     perror("ofile");
