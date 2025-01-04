@@ -17,8 +17,8 @@ FILE *ofile;
 int level = 0;
 int offset = 0; 
 
-int current_switch_end_label = -1;
-int current_switch_default_label = -1;
+static int switch_end_label = -1;
+static int switch_default_label = -1;
 
 typedef struct Codeval {
   cptr* code;
@@ -480,78 +480,110 @@ labelstmt : LABEL ID COLON
 	}
 	;
 
-
+/* switchstmt:
+ *   SWITCH
+ *     {
+ *       // ミドルルールアクション: case文を読む前にラベルを確定
+ *       switch_end_label = makelabel();
+ *       switch_default_label = makelabel();
+ *     }
+ *   E LBRA caselist defaultcase RBRA
+ */
 switchstmt
-  : SWITCH E LBRA caselist defaultcase RBRA
+  : SWITCH
     {
-      cptr *tmp;
+      switch_end_label   = makelabel();
+      switch_default_label = makelabel();
+    }
+    E LBRA caselist defaultcase RBRA
+    {
+      cptr *tmp = NULL;
 
-      // ID の計算コード
-      tmp = $2.code;
+      // switch式を評価 ( $2.code ) → オフセット3に保存するなど
+      tmp = mergecode(tmp, $2.code);
+      tmp = mergecode(tmp, makecode(O_STO, 0, 3));  
 
-      // caselist のコード ($4) を結合
+      // case のコードを結合
       tmp = mergecode(tmp, $4.code);
 
-      // default 部分
-      tmp = mergecode(tmp, makecode(O_LAB, 0, current_switch_default_label));
-      tmp = mergecode(tmp, $5.code);
+      // default のコード
+      if ($5.code != NULL) {
+        tmp = mergecode(tmp, makecode(O_LAB, 0, switch_default_label));
+        tmp = mergecode(tmp, $5.code);
+      }
 
-      // 終了ラベル
-      tmp = mergecode(tmp, makecode(O_LAB, 0, current_switch_end_label));
+      // switch終了ラベル
+      tmp = mergecode(tmp, makecode(O_LAB, 0, switch_end_label));
 
       $$.code = tmp;
-
-	  current_switch_end_label = -1;
-      current_switch_default_label = -1;
     }
   ;
 
+/* caselist:
+ *   caselist case
+ *   | case
+ */
 caselist
-    : caselist case
-      {
-        $$.code = mergecode($1.code, $2.code);
-      }
-    | case
-    ;
+  : caselist case
+    { $$.code = mergecode($1.code, $2.code); }
+  | case
+    { $$.code = $1.code; }
+  ;
 
+/* case:
+ *   CASE NUMBER COLON stmts breakstmt
+ */
 case
-  : CASE NUMBER COLON st
-    { 
+  : CASE NUMBER COLON stmts breakstmt
+    {
+      int skip_label = makelabel();  // この case をスキップするラベル
 
-	  if (current_switch_default_label == -1 && current_switch_end_label == -1) {
-		current_switch_default_label = makelabel();
-		current_switch_end_label     = makelabel();
-	  }
+      cptr *cmp = NULL;
+      // switch式(オフセット3)をロード
+      cmp = mergecode(cmp, makecode(O_LOD, 0, 3));
+      // case値をpush → OPR,0,8 (==)
+      cmp = mergecode(cmp, makecode(O_LIT, 0, $2.val));
+      cmp = mergecode(cmp, makecode(O_OPR, 0, 8));
+      // falseなら skip_labelへ
+      cmp = mergecode(cmp, makecode(O_JPC, 0, skip_label));
 
-      int case_label = makelabel();
+      // case本体 (stmts) → breakstmt
+      cptr *code = mergecode(cmp, $4.code);   
+      code = mergecode(code, $5.code);        // break: JMP switch_end_label
 
-      // NUMBER == ID か比較する
-      $$.code = makecode(O_LIT, 0, yylval.val);             // push NUMBER
-	  // push ID
-      $$.code = mergecode($$.code, makecode(O_OPR, 0, 8));  // == 比較
+      // skip_label:
+      code = mergecode(code, makecode(O_LAB, 0, skip_label));
 
-      // 偽なら case_label へ飛ぶ
-      $$.code = mergecode($$.code, makecode(O_JPC, 0, case_label));
-
-      // 真なら st を実行
-      $$.code = mergecode($$.code, $4.code);
-
-      // case の末尾で switch の終わりへ飛ぶ
-      $$.code = mergecode($$.code,
-                makecode(O_JMP, 0, current_switch_end_label));
-
-      // 次の case(あるいは default) へ: case_label 定義
-      $$.code = mergecode($$.code, makecode(O_LAB, 0, case_label));
+      $$.code = code;
     }
   ;
 
-
+/* defaultcase:
+ *   DEFAULT COLON stmts breakstmt
+ *   | (ε)
+ */
 defaultcase
-    : DEFAULT COLON st
-      {
-        $$.code = $3.code;
-      }
-    ;
+  : DEFAULT COLON stmts breakstmt
+    {
+      cptr *tmp = mergecode($3.code, $4.code);
+      $$.code = tmp;
+    }
+  | /* epsilon */
+    {
+      $$.code = NULL;
+    }
+  ;
+
+/* breakstmt:
+ *   BREAK SEMI
+ */
+breakstmt
+  : BREAK SEMI
+    {
+      // switch_end_labelに飛ぶ
+      $$.code = makecode(O_JMP, 0, switch_end_label);
+    }
+  ;
 
 
 
@@ -680,91 +712,86 @@ T	: T MULT L
           }
 	;
 
-L	: F POW L
-        {
-			int start = SYSTEM_AREA + offset;  // 現在の offset を記録
-			offset += 3;         // 必要な領域を確保
-			int b_off = start + 0;
-			int a_off = start + 1;
-			int r_off = start + 2;
+L : F POW L
+{
+    // スタック状態: [..., base(F), exponent(L)]
+    cptr* powCode = mergecode($1.code, $3.code);
 
-			cptr* powCode = mergecode(
-				mergecode($3.code, makecode(O_STO, 0, b_off)),
-				mergecode($1.code, makecode(O_STO, 0, a_off)) 
-				);
+    // result を初期化 (1 をプッシュ)
+    cptr* init_result = makecode(O_LIT, 0, 1);
 
-			powCode = mergecode(makecode(O_INT, 0, 3), powCode);
+    // ラベル生成
+    int label_top = makelabel();
+    int label_end = makelabel();
 
-			// result を初期化
-			cptr* init_result = mergecode(
-				makecode(O_LIT, 0, 1),
-				makecode(O_STO, 0, r_off)
-			);
+    // ラベル (ループの開始)
+    cptr* lab_top = makecode(O_LAB, 0, label_top);
 
-			// ループ用ラベル作成
-			int label_top = makelabel();
-			int label_end = makelabel();
+    // 条件: exponent > 0 (ループの継続条件)
+    cptr* check_exp = mergecode(
+        mergecode(
+            makecode(O_LOD, 0, -1), // exponent
+            makecode(O_LIT, 0, 0)   // 0
+        ),
+        makecode(O_OPR, 0, 12)       // OPR(GT): exponent > 0
+    );
+    cptr* jump_end = makecode(O_JPC, 0, label_end);
 
-			cptr* lab_top = makecode(O_LAB, 0, label_top);
+    // result *= base
+    cptr* mul_part = mergecode(
+        mergecode(
+            mergecode(
+                makecode(O_LOD, 0, -2), // result
+                makecode(O_LOD, 0, -3)  // base
+            ),
+            makecode(O_OPR, 0, 4)       // OPR(MUL): result * base
+        ),
+        makecode(O_STO, 0, -2)         // result = result * base
+    );
 
-			// b > 0 の条件判定
-			cptr* check_b = mergecode(
-				mergecode(
-					makecode(O_LOD, 0, b_off),
-					makecode(O_LIT, 0, 0)
-				),
-				makecode(O_OPR, 0, 12)
-			);
-			cptr* jump_end = makecode(O_JPC, 0, label_end);
-			cptr* if_b_part = mergecode(check_b, jump_end);
+    // exponent--
+    cptr* dec_exp = mergecode(
+        mergecode(
+            mergecode(
+                makecode(O_LOD, 0, -1), // exponent
+                makecode(O_LIT, 0, 1)   // 1
+            ),
+            makecode(O_OPR, 0, 3)       // OPR(SUB): exponent - 1
+        ),
+        makecode(O_STO, 0, -1)         // 更新された exponent を保存
+    );
 
-			// result *= a
-			cptr* mul_part = mergecode(
-				mergecode(
-					mergecode(
-						makecode(O_LOD, 0, r_off),
-						makecode(O_LOD, 0, a_off)
-					),
-					makecode(O_OPR, 0, 4)
-				),
-				makecode(O_STO, 0, r_off)
-			);
+    // ループの先頭へ戻る
+    cptr* jump_top = makecode(O_JMP, 0, label_top);
 
-			// b--
-			cptr* dec_b = mergecode(
-				mergecode(
-					mergecode(
-						makecode(O_LOD, 0, b_off),
-						makecode(O_LIT, 0, 1)
-					),
-					makecode(O_OPR, 0, 3)
-				),
-				makecode(O_STO, 0, b_off)
-			);
+    // ラベル (ループ終了)
+    cptr* lab_end = makecode(O_LAB, 0, label_end);
 
-			// ループ終了と結果のロード
-			cptr* jump_top = makecode(O_JMP, 0, label_top);
-			cptr* lab_end = makecode(O_LAB, 0, label_end);
-			cptr* load_r = makecode(O_LOD, 0, r_off);
+    // スタックに最終結果をプッシュ
+    cptr* load_result = makecode(O_LOD, 0, -2);
 
-			// 中間コードを結合
-			cptr* tmp = mergecode(powCode,init_result);
-			tmp = mergecode(tmp, lab_top);
-			tmp = mergecode(tmp, if_b_part);
-			tmp = mergecode(tmp, mul_part);
-			tmp = mergecode(tmp, dec_b);
-			tmp = mergecode(tmp, jump_top);
-			tmp = mergecode(tmp, lab_end);
-			tmp = mergecode(tmp, load_r);
+    // 中間コードの結合
+    cptr* tmp = mergecode(powCode, init_result);
+    tmp = mergecode(tmp, lab_top);
+    tmp = mergecode(tmp, check_exp);
+    tmp = mergecode(tmp, jump_end);
+    tmp = mergecode(tmp, mul_part);
+    tmp = mergecode(tmp, dec_exp);
+    tmp = mergecode(tmp, jump_top);
+    tmp = mergecode(tmp, lab_end);
+    tmp = mergecode(tmp, load_result);
 
-			$$.code = tmp;
-			$$.val  = 3;  // 必要な領域のサイズ
-		}
-        | F
-          {
-            $$.code = $1.code;
-          }
-	;
+    // スタック領域の解放
+    tmp = mergecode(tmp, makecode(O_INT, 0, -3));
+
+    $$.code = tmp;
+    $$.val = 0; // 追加する領域はスタック上に確保されるため不要
+}
+| F
+{
+    $$.code = $1.code;
+};
+
 
 F	: ID
 	  {

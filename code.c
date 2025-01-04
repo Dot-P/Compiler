@@ -2,6 +2,10 @@
 #include <stdlib.h>
 
 #include "code.h"
+#define MAX_LABEL_STACK  128
+
+static int labelStack[MAX_LABEL_STACK];
+static int labelStackTop = -1;
 
 /* table for mnemonic code */
 mnemonic mntbl[] = {
@@ -122,7 +126,6 @@ int makelabel(){
   x++;
   return x;
 }
-
 
 int yyerror(const char *s) {
     fprintf(stderr, "error: %s\n", s);

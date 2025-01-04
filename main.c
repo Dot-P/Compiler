@@ -1,17 +1,19 @@
-main{
+main {
   var n;
   
   read n;
 
-  if n < 10 then
-    goto flag;
-  endif;
-
-  write 0;
-
-  label flag :
-
-  write 1;
+  switch n {
+    case 1:
+      write 0;
+      break;
+    case 2:
+      write 1;
+      break;
+    default:
+      write 2;
+      break;
+  }
 
   writeln;
 }
