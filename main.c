@@ -4,14 +4,14 @@ main {
   read n;
 
   switch n {
-    case 1:
-      write 0;
+    case 100:
+      write 10;
       break;
-    case 2:
-      write 1;
+    case 200:
+      write 20;
       break;
     default:
-      write 2;
+      write 30;
       break;
   }
 

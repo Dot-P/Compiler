@@ -489,11 +489,8 @@ switchstmt
     }
     E LBRA caselist defaultcase RBRA
     {
-      cptr *tmp = NULL;
-
-      // switch式を評価 ( $2.code ) → オフセット3に保存するなど
-      tmp = mergecode(tmp, $2.code);
-      tmp = mergecode(tmp, makecode(O_STO, 0, 3));  
+      // switch式を評価 ( $2.code )
+      cptr* tmp = $2.code;
 
       // case のコードを結合
       tmp = mergecode(tmp, $4.code);
@@ -525,9 +522,8 @@ case
     {
       int skip_label = makelabel();  // この case をスキップするラベル
 
-      cptr *cmp = NULL;
       // switch式(オフセット3)をロード
-      cmp = mergecode(cmp, makecode(O_LOD, 0, 3));
+      cptr* cmp = makecode(O_LOD, 0, 3);
       // case値をpush → OPR,0,8 (==)
       cmp = mergecode(cmp, makecode(O_LIT, 0, $2.val));
       cmp = mergecode(cmp, makecode(O_OPR, 0, 8));
@@ -535,7 +531,7 @@ case
       cmp = mergecode(cmp, makecode(O_JPC, 0, skip_label));
 
       // case本体 (stmts) → breakstmt
-      cptr *code = mergecode(cmp, $4.code);   
+      cptr* code = mergecode(cmp, $4.code);   
       code = mergecode(code, $5.code);
 
       // skip_label:
@@ -549,8 +545,7 @@ case
 defaultcase
   : DEFAULT COLON stmts breakstmt
     {
-      cptr *tmp = mergecode($3.code, $4.code);
-      $$.code = tmp;
+      $$.code = mergecode($3.code, $4.code);
     }
   | /* epsilon */
     {
