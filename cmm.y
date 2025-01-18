@@ -689,83 +689,92 @@ T	: T MULT L
 
 L : F POW L
 {
-    // スタック状態: [..., base(F), exponent(L)]
-    cptr* powCode = mergecode($1.code, $3.code);
+    int start = SYSTEM_AREA + offset;  // 現在の offset を記録
+    offset += 3;                      // 必要な領域を確保
 
-    // result を初期化 (1 をプッシュ)
-    cptr* init_result = makecode(O_LIT, 0, 1);
+    int b_off = start + 0;
+    int a_off = start + 1;
+    int r_off = start + 2;
 
-    // ラベル生成
+    // base と exponent を格納
+    cptr* powCode = mergecode(
+        mergecode($3.code, makecode(O_STO, 0, b_off)),
+        mergecode($1.code, makecode(O_STO, 0, a_off))
+    );
+
+    // 必要な領域を確保
+    powCode = mergecode(makecode(O_INT, 0, 3), powCode);
+
+    // result を初期化
+    cptr* init_result = mergecode(
+        makecode(O_LIT, 0, 1),
+        makecode(O_STO, 0, r_off)
+    );
+
+    // ループ用ラベル作成
     int label_top = makelabel();
     int label_end = makelabel();
 
-    // ラベル (ループの開始)
     cptr* lab_top = makecode(O_LAB, 0, label_top);
 
-    // 条件: exponent > 0 (ループの継続条件)
-    cptr* check_exp = mergecode(
+    // b > 0 の条件判定
+    cptr* check_b = mergecode(
         mergecode(
-            makecode(O_LOD, 0, -1), // exponent
-            makecode(O_LIT, 0, 0)   // 0
+            makecode(O_LOD, 0, b_off),
+            makecode(O_LIT, 0, 0)
         ),
-        makecode(O_OPR, 0, 12)       // OPR(GT): exponent > 0
+        makecode(O_OPR, 0, 12)  // OPR(GT): b > 0
     );
     cptr* jump_end = makecode(O_JPC, 0, label_end);
+    cptr* if_b_part = mergecode(check_b, jump_end);
 
-    // result *= base
+    // result *= a
     cptr* mul_part = mergecode(
         mergecode(
             mergecode(
-                makecode(O_LOD, 0, -2), // result
-                makecode(O_LOD, 0, -3)  // base
+                makecode(O_LOD, 0, r_off),
+                makecode(O_LOD, 0, a_off)
             ),
-            makecode(O_OPR, 0, 4)       // OPR(MUL): result * base
+            makecode(O_OPR, 0, 4)  // OPR(MUL): result * base
         ),
-        makecode(O_STO, 0, -2)         // result = result * base
+        makecode(O_STO, 0, r_off)  // 更新された result を保存
     );
 
-    // exponent--
-    cptr* dec_exp = mergecode(
+    // b--
+    cptr* dec_b = mergecode(
         mergecode(
             mergecode(
-                makecode(O_LOD, 0, -1), // exponent
-                makecode(O_LIT, 0, 1)   // 1
+                makecode(O_LOD, 0, b_off),
+                makecode(O_LIT, 0, 1)
             ),
-            makecode(O_OPR, 0, 3)       // OPR(SUB): exponent - 1
+            makecode(O_OPR, 0, 3)  // OPR(SUB): b - 1
         ),
-        makecode(O_STO, 0, -1)         // 更新された exponent を保存
+        makecode(O_STO, 0, b_off)  // 更新された b を保存
     );
 
-    // ループの先頭へ戻る
+    // ループ終了と結果のロード
     cptr* jump_top = makecode(O_JMP, 0, label_top);
-
-    // ラベル (ループ終了)
     cptr* lab_end = makecode(O_LAB, 0, label_end);
+    cptr* load_r = makecode(O_LOD, 0, r_off);
 
-    // スタックに最終結果をプッシュ
-    cptr* load_result = makecode(O_LOD, 0, -2);
-
-    // 中間コードの結合
+    // 中間コードを結合
     cptr* tmp = mergecode(powCode, init_result);
     tmp = mergecode(tmp, lab_top);
-    tmp = mergecode(tmp, check_exp);
-    tmp = mergecode(tmp, jump_end);
+    tmp = mergecode(tmp, if_b_part);
     tmp = mergecode(tmp, mul_part);
-    tmp = mergecode(tmp, dec_exp);
+    tmp = mergecode(tmp, dec_b);
     tmp = mergecode(tmp, jump_top);
     tmp = mergecode(tmp, lab_end);
-    tmp = mergecode(tmp, load_result);
-
-    // スタック領域の解放
-    tmp = mergecode(tmp, makecode(O_INT, 0, -3));
+    tmp = mergecode(tmp, load_r);
 
     $$.code = tmp;
-    $$.val = 0; // 追加する領域はスタック上に確保されるため不要
+    $$.val = 3;  // 必要な領域のサイズ
 }
 | F
 {
     $$.code = $1.code;
 };
+
 
 
 F	: ID
