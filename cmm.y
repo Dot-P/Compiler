@@ -485,7 +485,6 @@ switchstmt
   : SWITCH
     {
       switch_end_label   = makelabel();
-      switch_default_label = makelabel();
     }
     E LBRA caselist defaultcase RBRA
     {
@@ -497,7 +496,6 @@ switchstmt
 
       // default のコード
       if ($6.code != NULL) {
-        tmp = mergecode(tmp, makecode(O_LAB, 0, switch_default_label));
         tmp = mergecode(tmp, $6.code);
       }
 
@@ -559,10 +557,6 @@ breakstmt
     {
       // switch_end_labelに飛ぶ
       $$.code = makecode(O_JMP, 0, switch_end_label);
-    }
-  | /* epsilon */
-    {
-      $$.code = NULL;
     }
   ;
 
