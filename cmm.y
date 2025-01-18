@@ -480,15 +480,7 @@ labelstmt : LABEL ID COLON
 	}
 	;
 
-/* switchstmt:
- *   SWITCH
- *     {
- *       // ミドルルールアクション: case文を読む前にラベルを確定
- *       switch_end_label = makelabel();
- *       switch_default_label = makelabel();
- *     }
- *   E LBRA caselist defaultcase RBRA
- */
+
 switchstmt
   : SWITCH
     {
@@ -519,10 +511,7 @@ switchstmt
     }
   ;
 
-/* caselist:
- *   caselist case
- *   | case
- */
+
 caselist
   : caselist case
     { $$.code = mergecode($1.code, $2.code); }
@@ -530,9 +519,7 @@ caselist
     { $$.code = $1.code; }
   ;
 
-/* case:
- *   CASE NUMBER COLON stmts breakstmt
- */
+
 case
   : CASE NUMBER COLON stmts breakstmt
     {
@@ -549,7 +536,7 @@ case
 
       // case本体 (stmts) → breakstmt
       cptr *code = mergecode(cmp, $4.code);   
-      code = mergecode(code, $5.code);        // break: JMP switch_end_label
+      code = mergecode(code, $5.code);
 
       // skip_label:
       code = mergecode(code, makecode(O_LAB, 0, skip_label));
@@ -558,10 +545,7 @@ case
     }
   ;
 
-/* defaultcase:
- *   DEFAULT COLON stmts breakstmt
- *   | (ε)
- */
+
 defaultcase
   : DEFAULT COLON stmts breakstmt
     {
@@ -574,14 +558,16 @@ defaultcase
     }
   ;
 
-/* breakstmt:
- *   BREAK SEMI
- */
+
 breakstmt
   : BREAK SEMI
     {
       // switch_end_labelに飛ぶ
       $$.code = makecode(O_JMP, 0, switch_end_label);
+    }
+  | /* epsilon */
+    {
+      $$.code = NULL;
     }
   ;
 
