@@ -489,16 +489,16 @@ switchstmt
     }
     E LBRA caselist defaultcase RBRA
     {
-      // switch式を評価 ( $2.code )
-      cptr* tmp = $2.code;
+      // switch式を評価 ( $3.code )
+      cptr* tmp = $3.code;
 
       // case のコードを結合
-      tmp = mergecode(tmp, $4.code);
+      tmp = mergecode(tmp, $5.code);
 
       // default のコード
-      if ($5.code != NULL) {
+      if ($6.code != NULL) {
         tmp = mergecode(tmp, makecode(O_LAB, 0, switch_default_label));
-        tmp = mergecode(tmp, $5.code);
+        tmp = mergecode(tmp, $6.code);
       }
 
       // switch終了ラベル
