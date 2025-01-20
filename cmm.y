@@ -627,11 +627,11 @@ cond	: E GT E
 								)); // > 0
 		$$.code = tmp;
       }
-    | NOT cond
+    | NOT LPAR cond RPAR
       {
         // NOT: (A == 0)
         $$.code =  mergecode(
-						mergecode($2.code, makecode(O_LIT, 0, 0)), 
+						mergecode($3.code, makecode(O_LIT, 0, 0)), 
 						makecode(O_OPR, 0, 8)
 					);
       }
@@ -689,86 +689,8 @@ T	: T MULT L
 
 L : F POW L
 {
-    int start = SYSTEM_AREA + offset;  // 現在の offset を記録
-    offset += 3;                      // 必要な領域を確保
-
-    int b_off = start + 0;
-    int a_off = start + 1;
-    int r_off = start + 2;
-
-    // base と exponent を格納
-    cptr* powCode = mergecode(
-        mergecode($3.code, makecode(O_STO, 0, b_off)),
-        mergecode($1.code, makecode(O_STO, 0, a_off))
-    );
-
-    // 必要な領域を確保
-    powCode = mergecode(makecode(O_INT, 0, 3), powCode);
-
-    // result を初期化
-    cptr* init_result = mergecode(
-        makecode(O_LIT, 0, 1),
-        makecode(O_STO, 0, r_off)
-    );
-
-    // ループ用ラベル作成
-    int label_top = makelabel();
-    int label_end = makelabel();
-
-    cptr* lab_top = makecode(O_LAB, 0, label_top);
-
-    // b > 0 の条件判定
-    cptr* check_b = mergecode(
-        mergecode(
-            makecode(O_LOD, 0, b_off),
-            makecode(O_LIT, 0, 0)
-        ),
-        makecode(O_OPR, 0, 12)  // OPR(GT): b > 0
-    );
-    cptr* jump_end = makecode(O_JPC, 0, label_end);
-    cptr* if_b_part = mergecode(check_b, jump_end);
-
-    // result *= a
-    cptr* mul_part = mergecode(
-        mergecode(
-            mergecode(
-                makecode(O_LOD, 0, r_off),
-                makecode(O_LOD, 0, a_off)
-            ),
-            makecode(O_OPR, 0, 4)  // OPR(MUL): result * base
-        ),
-        makecode(O_STO, 0, r_off)  // 更新された result を保存
-    );
-
-    // b--
-    cptr* dec_b = mergecode(
-        mergecode(
-            mergecode(
-                makecode(O_LOD, 0, b_off),
-                makecode(O_LIT, 0, 1)
-            ),
-            makecode(O_OPR, 0, 3)  // OPR(SUB): b - 1
-        ),
-        makecode(O_STO, 0, b_off)  // 更新された b を保存
-    );
-
-    // ループ終了と結果のロード
-    cptr* jump_top = makecode(O_JMP, 0, label_top);
-    cptr* lab_end = makecode(O_LAB, 0, label_end);
-    cptr* load_r = makecode(O_LOD, 0, r_off);
-
-    // 中間コードを結合
-    cptr* tmp = mergecode(powCode, init_result);
-    tmp = mergecode(tmp, lab_top);
-    tmp = mergecode(tmp, if_b_part);
-    tmp = mergecode(tmp, mul_part);
-    tmp = mergecode(tmp, dec_b);
-    tmp = mergecode(tmp, jump_top);
-    tmp = mergecode(tmp, lab_end);
-    tmp = mergecode(tmp, load_r);
-
-    $$.code = tmp;
-    $$.val = 3;  // 必要な領域のサイズ
+    $$.code = mergecode(mergecode($1.code, $3.code),
+				makecode(O_OPR, 0, 7));
 }
 | F
 {
