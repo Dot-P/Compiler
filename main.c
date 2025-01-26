@@ -1,13 +1,5 @@
-func1(n){
-    if n < 1 then return 1;
-    else return n + func2(n - 1);
-    endif;
-}
-
-func2(n){
-    if n < 1 then return 1;
-    else return n * func1(n - 1);
-    endif;
+f1(n){
+  return 1+n;
 }
 
 main {
@@ -59,9 +51,6 @@ main {
   write ++a;
   write b--;
   write --b;
-  writeln;
-
-  write(func1(n));
   writeln;
   
 }

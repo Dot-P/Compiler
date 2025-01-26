@@ -15,6 +15,11 @@ typedef struct CPTR {
   code *t;
 } cptr;
 
+typedef struct {
+    char operation[10];
+    int l, a;
+} Instruction;
+
 /* operation codes of PL/0 code */
 typedef enum { 
   O_LIT, O_OPR, O_LOD, O_STO, O_CAL, O_INT, 
@@ -32,5 +37,6 @@ cptr* makecode(int f, int l, int a);
 cptr* mergecode(cptr* c1, cptr* c2);
 void  printcode(FILE* f, cptr* c);
 cptr* clonecode(cptr* orig);
-
+char *trim(char *str);
+void optimize_code();
 #endif

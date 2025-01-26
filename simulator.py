@@ -66,6 +66,18 @@ class AssemblySimulator:
                 self.adjust_stack_pointer(argument)
                 break
             elif opcode == "CSP":  # CSP: 特殊命令
+                if argument == 0:  # CSP, 0, 0
+                    if "input_value" in st.session_state and st.session_state.input_value is not None:
+                        self.stack_pointer += 1
+                        if self.stack_pointer >= len(self.stack):
+                            self.stack.append(None)  # 必要ならスタックを拡張
+                        self.stack[self.stack_pointer] = st.session_state.input_value
+                        st.session_state.input_value = None  # 入力値をクリア
+                        break
+                    else:
+                        st.warning("Please enter a value for CSP, 0, 0 and press 'Next Step'.")
+                        self.current_line -= 1  # 入力待ちで命令を再度実行
+                        return True
                 if argument == 1:
                     self.highlight_sp = True
                 elif argument == 2:  # CSP, 0, 2 はスルー
@@ -154,6 +166,11 @@ def main():
         st.session_state.simulator.reset()
 
     simulator = st.session_state.simulator
+
+    st.subheader("User Input")
+    st.session_state.input_value = st.number_input(
+        "Enter a value for CSP, 0, 0:", value=0, step=1, key="csp_input"
+    )
 
     # ボタンで制御
     col1, col2 = st.columns(2)

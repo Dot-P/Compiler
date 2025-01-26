@@ -953,4 +953,6 @@ main(){
     perror("ofile");
     exit(EXIT_FAILURE);
   }
+
+  optimize_code();
 }
